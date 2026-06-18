@@ -3,6 +3,7 @@ import sys
 import os
 import re
 import time
+import urllib.request
 
 # Reconfigure standard streams to UTF-8 if possible
 try:
@@ -166,6 +167,24 @@ def is_valid_endpoint(cleaned):
         
     return False
 
+def fetch_url_content(url):
+    """
+    Fetches content from a URL with a custom User-Agent.
+    """
+    try:
+        req = urllib.request.Request(
+            url, 
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+            }
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
+            return response.read().decode('utf-8', errors='ignore')
+    except Exception as e:
+        print(f"\n{BOLD}{RED}[!] Gagal mengunduh {url}: {e}{RESET}", file=sys.stderr)
+        return ""
+
 def extract_endpoints_from_text(content):
     """
     Extracts all URLs and paths from text content, safely handling HTML elements.
@@ -251,25 +270,50 @@ def main():
                 time.sleep(1.5)
                 continue
                 
-            filename = input(f"{BOLD}Masukan .txt > {RESET}").strip()
+            filename = input(f"{BOLD}Masukan .txt / URL > {RESET}").strip()
             if not filename:
-                print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Nama file tidak boleh kosong.{RESET}")
+                print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Target tidak boleh kosong.{RESET}")
                 time.sleep(1.5)
                 continue
                 
-            if not os.path.exists(filename):
-                print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: File '{filename}' tidak ditemukan.{RESET}")
-                time.sleep(2.0)
-                continue
-                
-            # Process file
-            print()
-            show_spinner(0.6)
+            content = ""
+            all_endpoints = []
             
-            with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
+            # 1. Check if the input itself is a direct URL
+            if filename.startswith(('http://', 'https://')):
+                print(f"\n{BOLD}{CYAN}[~]{RESET} Mengunduh URL: {filename}...")
+                show_spinner(0.5)
+                content = fetch_url_content(filename)
+                all_endpoints = extract_endpoints_from_text(content)
+            else:
+                # 2. Local file input
+                if not os.path.exists(filename):
+                    print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: File '{filename}' tidak ditemukan.{RESET}")
+                    time.sleep(2.0)
+                    continue
+                    
+                with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = [line.strip() for line in f if line.strip()]
+                    
+                # Check if the local file contains a list of URLs (one per line)
+                is_url_list = all(line.startswith(('http://', 'https://')) for line in lines)
                 
-            all_endpoints = extract_endpoints_from_text(content)
+                if is_url_list and lines:
+                    print(f"\n{BOLD}{CYAN}[~]{RESET} Mendeteksi {len(lines)} URL di dalam file. Memulai proses unduh...")
+                    for idx, url in enumerate(lines, 1):
+                        sys.stdout.write(f"\r{BOLD}{CYAN}[{idx}/{len(lines)}]{RESET} Mengunduh {url[:45]}... ")
+                        sys.stdout.flush()
+                        url_content = fetch_url_content(url)
+                        endpoints_from_url = extract_endpoints_from_text(url_content)
+                        all_endpoints.extend(endpoints_from_url)
+                    print(f"\r{BOLD}{GREEN}[{CHECK_MARK}]{RESET} Selesai mengunduh {len(lines)} URL!            \n")
+                else:
+                    # Treat as standard raw log/text file
+                    print()
+                    show_spinner(0.6)
+                    with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                    all_endpoints = extract_endpoints_from_text(content)
             
             filtered = []
             menu_name = ""
