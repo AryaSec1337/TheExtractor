@@ -365,6 +365,15 @@ def main():
                 filtered = all_endpoints
                 menu_name = "All Endpoints"
                 
+            # Final de-duplication preserving order
+            seen = set()
+            unique_filtered = []
+            for ep in filtered:
+                if ep not in seen:
+                    seen.add(ep)
+                    unique_filtered.append(ep)
+            filtered = unique_filtered
+                
             print(f"\n{BOLD}{GREEN}─── Hasil Ekstraksi ({menu_name}) ({len(filtered)} item) ───{RESET}")
             if not filtered:
                 print(f"{YELLOW}Tidak ada data yang cocok ditemukan.{RESET}")
