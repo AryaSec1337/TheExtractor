@@ -82,7 +82,10 @@ def clean_endpoint(endpoint):
         changed = False
         old_endpoint = endpoint
         endpoint = endpoint.strip()
+        
+        # Only strip trailing punctuation (no quotes, no backslashes)
         endpoint = endpoint.rstrip('.,;:)"`]>} ')
+        # Only strip leading punctuation (no quotes, no backslashes)
         endpoint = endpoint.lstrip('("`[<{ ')
         
         # Strip surrounding quotes (standard and escaped)
@@ -108,7 +111,6 @@ def is_js(endpoint):
 def is_valid_endpoint(cleaned):
     if not cleaned:
         return False
-    # If it contains HTML tag brackets, it's not a clean endpoint
     if '<' in cleaned or '>' in cleaned:
         return False
         
@@ -116,7 +118,25 @@ def is_valid_endpoint(cleaned):
     if any(c.isspace() for c in cleaned):
         return False
         
-    # Check start indicators and verify they contain characters after the slash/dot
+    # Limit maximum length of a path to prevent minified JSON blocks from matching
+    if len(cleaned) > 250:
+        return False
+        
+    # Split the path part (before query parameters)
+    path_part = cleaned.split('?')[0].split('#')[0]
+    
+    # Path parts should not contain characters from JSON/markup/code
+    # E.g. double quotes, commas, backslashes, parentheses, brackets, braces, semicolons, equal signs, ampersands, pipes
+    illegal_chars = ['"', "'", ',', '\\', ';', '(', ')', '[', ']', '|', '&', '!', '*', '=', '+']
+    if any(char in path_part for char in illegal_chars):
+        return False
+        
+    # Handle curly braces in path_part (only allow matching braces with alphanumeric content like {code})
+    if '{' in path_part or '}' in path_part:
+        if not re.match(r'^[^{}]*(?:\{[a-zA-Z0-9_]+\}[^{}]*)*$', path_part):
+            return False
+            
+    # Check start indicators
     if cleaned.startswith('//'):
         return len(cleaned) > 2
     elif cleaned.startswith('../'):
@@ -124,6 +144,8 @@ def is_valid_endpoint(cleaned):
     elif cleaned.startswith('./'):
         return len(cleaned) > 2
     elif cleaned.startswith('/'):
+        if ':' in path_part:
+            return False
         return len(cleaned) > 1
         
     # If it contains a slash but doesn't start with path indicators
@@ -134,9 +156,10 @@ def is_valid_endpoint(cleaned):
         # Check if it is a fraction (e.g. 1/2)
         if re.match(r'^\d+/\d+$', cleaned):
             return False
+        if ':' in path_part:
+            return False
             
         # Avoid simple word pairs like and/or, yes/no, etc.
-        # A valid relative path must either have a dot (e.g. extension) or at least 2 slashes.
         if '.' in cleaned or cleaned.count('/') >= 2:
             return True
         return False
