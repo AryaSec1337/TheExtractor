@@ -1,5 +1,10 @@
 # Output files
 output.txt
+hasil.txt
+
+# Large test logs
+req.txt
+endpoint-1.txt
 
 # Python files
 __pycache__/

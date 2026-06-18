@@ -73,33 +73,29 @@ def print_header():
 
 def clean_endpoint(endpoint):
     """
-    Cleans up surrounding quotes, brackets, parentheses, and trailing punctuation.
+    Cleans up surrounding quotes, brackets, parentheses, and trailing punctuation recursively.
     """
     endpoint = endpoint.strip()
     
-    # Strip matched surrounding brackets/quotes
     changed = True
     while changed:
         changed = False
-        if len(endpoint) >= 2:
-            if (endpoint[0] == '"' and endpoint[-1] == '"') or (endpoint[0] == "'" and endpoint[-1] == "'"):
-                endpoint = endpoint[1:-1]
+        old_endpoint = endpoint
+        endpoint = endpoint.strip()
+        endpoint = endpoint.rstrip('.,;:)"`]>} ')
+        endpoint = endpoint.lstrip('("`[<{ ')
+        
+        # Strip surrounding quotes (standard and escaped)
+        for quote in ['"', "'", '\\"', "\\'"]:
+            if endpoint.startswith(quote) and endpoint.endswith(quote):
+                ql = len(quote)
+                endpoint = endpoint[ql:-ql]
                 changed = True
-            elif endpoint[0] == '(' and endpoint[-1] == ')':
-                endpoint = endpoint[1:-1]
-                changed = True
-            elif endpoint[0] == '[' and endpoint[-1] == ']':
-                endpoint = endpoint[1:-1]
-                changed = True
-            elif endpoint[0] == '{' and endpoint[-1] == '}':
-                endpoint = endpoint[1:-1]
-                changed = True
+                break
                 
-    # Strip trailing punctuation (but not letters, numbers, slashes, or valid query params)
-    endpoint = endpoint.rstrip('.,;:)"`]>} ')
-    # Strip leading punctuation/brackets (but NOT dots or slashes!)
-    endpoint = endpoint.lstrip('("`[<{ ')
-    
+        if endpoint != old_endpoint:
+            changed = True
+            
     return endpoint
 
 def is_js(endpoint):
@@ -109,43 +105,83 @@ def is_js(endpoint):
     path_part = endpoint.split('?')[0].split('#')[0]
     return path_part.lower().endswith('.js')
 
+def is_valid_endpoint(cleaned):
+    if not cleaned:
+        return False
+    # If it contains HTML tag brackets, it's not a clean endpoint
+    if '<' in cleaned or '>' in cleaned:
+        return False
+        
+    # An endpoint or path should NEVER contain spaces or whitespace
+    if any(c.isspace() for c in cleaned):
+        return False
+        
+    # Check start indicators and verify they contain characters after the slash/dot
+    if cleaned.startswith('//'):
+        return len(cleaned) > 2
+    elif cleaned.startswith('../'):
+        return len(cleaned) > 3
+    elif cleaned.startswith('./'):
+        return len(cleaned) > 2
+    elif cleaned.startswith('/'):
+        return len(cleaned) > 1
+        
+    # If it contains a slash but doesn't start with path indicators
+    elif '/' in cleaned:
+        # Check if it is a date (e.g. 12/05/2024)
+        if re.match(r'^\d{1,4}/\d{1,2}/\d{1,4}$', cleaned):
+            return False
+        # Check if it is a fraction (e.g. 1/2)
+        if re.match(r'^\d+/\d+$', cleaned):
+            return False
+            
+        # Avoid simple word pairs like and/or, yes/no, etc.
+        # A valid relative path must either have a dot (e.g. extension) or at least 2 slashes.
+        if '.' in cleaned or cleaned.count('/') >= 2:
+            return True
+        return False
+        
+    return False
+
 def extract_endpoints_from_text(content):
     """
-    Extracts all URLs and paths from text content.
+    Extracts all URLs and paths from text content, safely handling HTML elements.
     """
     endpoints = []
     
-    # 1. Extract URLs
+    # 1. Extract URLs first
     urls = URL_PATTERN.findall(content)
     for url in urls:
         cleaned_url = clean_endpoint(url)
-        if cleaned_url:
+        if cleaned_url and not ('<' in cleaned_url or '>' in cleaned_url):
             endpoints.append(cleaned_url)
             
-    # Remove URLs from text to avoid duplicate matching on path parts of URLs
-    temp_text = content
+    # Remove URLs from content to avoid duplicate matching on path parts of URLs
+    temp_content = content
     for url in urls:
-        temp_text = temp_text.replace(url, ' ')
+        temp_content = temp_content.replace(url, ' ')
         
-    # 2. Extract path-like structures
-    tokens = temp_text.split()
+    # 2. Extract double and single quoted strings (handles escaped quotes)
+    double_quotes = re.findall(r'"((?:[^"\\]|\\.)*)"', temp_content)
+    for q in double_quotes:
+        cleaned = clean_endpoint(q)
+        if is_valid_endpoint(cleaned):
+            endpoints.append(cleaned)
+            
+    single_quotes = re.findall(r"'((?:[^'\\]|\\.)*)'", temp_content)
+    for q in single_quotes:
+        cleaned = clean_endpoint(q)
+        if is_valid_endpoint(cleaned):
+            endpoints.append(cleaned)
+            
+    # 3. Strip HTML tags from content to extract plain text paths safely
+    stripped_content = re.sub(r'<[^>]*>', ' ', temp_content)
+    
+    # Split by whitespace and parse tokens
+    tokens = stripped_content.split()
     for token in tokens:
         cleaned = clean_endpoint(token)
-        if not cleaned:
-            continue
-            
-        # Check if it looks like an endpoint
-        if cleaned.startswith('/') or cleaned.startswith('./') or cleaned.startswith('../'):
-            if len(cleaned) > 1:  # avoid single "/"
-                endpoints.append(cleaned)
-        elif '/' in cleaned:
-            # Check if it is a date (e.g. 12/05/2024)
-            if re.match(r'^\d{1,4}/\d{1,2}/\d{1,4}$', cleaned):
-                continue
-            # Check if it is a fraction (e.g. 1/2)
-            if re.match(r'^\d+/\d+$', cleaned):
-                continue
-            # Otherwise, if it has a slash and is not a date/fraction, it might be a path
+        if is_valid_endpoint(cleaned):
             endpoints.append(cleaned)
             
     # De-duplicate and preserve order
