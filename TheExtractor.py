@@ -253,90 +253,115 @@ def main():
         clear_screen()
         print_header()
         
-        print(f" {BOLD}{BLUE}[1]{RESET} URLs Only")
-        print(f" {BOLD}{BLUE}[2]{RESET} Paths Only")
-        print(f" {BOLD}{BLUE}[3]{RESET} JS Only")
-        print(f" {BOLD}{BLUE}[4]{RESET} Keluar (Exit)")
+        print(f" {BOLD}{BLUE}[1]{RESET} URLs Only (Local File)")
+        print(f" {BOLD}{BLUE}[2]{RESET} Paths Only (Local File)")
+        print(f" {BOLD}{BLUE}[3]{RESET} JS Only (Local File)")
+        print(f" {BOLD}{BLUE}[4]{RESET} Extract from JS URL / List URL")
+        print(f" {BOLD}{BLUE}[5]{RESET} Keluar (Exit)")
         print(f"{BOLD}{CYAN}{LINE}{RESET}")
         
         try:
-            choice = input(f"{BOLD}Pilih Menu [1-4] > {RESET}").strip()
-            if choice == '4':
+            choice = input(f"{BOLD}Pilih Menu [1-5] > {RESET}").strip()
+            if choice == '5':
                 print(f"\n{BOLD}{GREEN}Terima kasih telah menggunakan TheExtractor! Sampai jumpa.{RESET}\n")
                 break
                 
-            if choice not in ['1', '2', '3']:
-                print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Menu tidak valid. Silakan pilih 1-4.{RESET}")
+            if choice not in ['1', '2', '3', '4']:
+                print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Menu tidak valid. Silakan pilih 1-5.{RESET}")
                 time.sleep(1.5)
                 continue
                 
-            filename = input(f"{BOLD}Masukan .txt / URL > {RESET}").strip()
-            if not filename:
-                print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Target tidak boleh kosong.{RESET}")
-                time.sleep(1.5)
-                continue
-                
-            content = ""
             all_endpoints = []
+            menu_name = ""
+            extraction_type = ""
             
-            # 1. Check if the input itself is a direct URL
-            if filename.startswith(('http://', 'https://')):
-                print(f"\n{BOLD}{CYAN}[~]{RESET} Mengunduh URL: {filename}...")
-                show_spinner(0.5)
-                content = fetch_url_content(filename)
-                all_endpoints = extract_endpoints_from_text(content)
-            else:
-                # 2. Local file input
+            if choice in ['1', '2', '3']:
+                # Local file parsing
+                filename = input(f"{BOLD}Masukan File .txt > {RESET}").strip()
+                if not filename:
+                    print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Nama file tidak boleh kosong.{RESET}")
+                    time.sleep(1.5)
+                    continue
+                    
                 if not os.path.exists(filename):
                     print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: File '{filename}' tidak ditemukan.{RESET}")
                     time.sleep(2.0)
                     continue
                     
+                print()
+                show_spinner(0.6)
                 with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
-                    lines = [line.strip() for line in f if line.strip()]
-                    
-                # Check if the local file contains a list of URLs (one per line)
-                is_url_list = all(line.startswith(('http://', 'https://')) for line in lines)
+                    content = f.read()
+                all_endpoints = extract_endpoints_from_text(content)
+                extraction_type = choice
                 
-                if is_url_list and lines:
-                    print(f"\n{BOLD}{CYAN}[~]{RESET} Mendeteksi {len(lines)} URL di dalam file. Memulai proses unduh...")
-                    for idx, url in enumerate(lines, 1):
-                        sys.stdout.write(f"\r{BOLD}{CYAN}[{idx}/{len(lines)}]{RESET} Mengunduh {url[:45]}... ")
-                        sys.stdout.flush()
-                        url_content = fetch_url_content(url)
-                        endpoints_from_url = extract_endpoints_from_text(url_content)
-                        all_endpoints.extend(endpoints_from_url)
-                    print(f"\r{BOLD}{GREEN}[{CHECK_MARK}]{RESET} Selesai mengunduh {len(lines)} URL!            \n")
+            elif choice == '4':
+                # Remote URL / List URL parsing
+                target = input(f"{BOLD}Masukan URL / File List URL > {RESET}").strip()
+                if not target:
+                    print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Target tidak boleh kosong.{RESET}")
+                    time.sleep(1.5)
+                    continue
+                    
+                lines = []
+                if target.startswith(('http://', 'https://')):
+                    lines = [target]
                 else:
-                    # Treat as standard raw log/text file
-                    print()
-                    show_spinner(0.6)
-                    with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-                    all_endpoints = extract_endpoints_from_text(content)
+                    if not os.path.exists(target):
+                        print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: File '{target}' tidak ditemukan.{RESET}")
+                        time.sleep(2.0)
+                        continue
+                    with open(target, 'r', encoding='utf-8', errors='ignore') as f:
+                        lines = [line.strip() for line in f if line.strip()]
+                        
+                is_url_list = all(line.startswith(('http://', 'https://')) for line in lines)
+                if not is_url_list:
+                    print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: File/Target harus berisi URL valid (dimulai dengan http/https).{RESET}")
+                    time.sleep(2.5)
+                    continue
+                    
+                print(f"\n{BOLD}{CYAN}[~]{RESET} Mendeteksi {len(lines)} URL. Memulai proses unduh...")
+                for idx, url in enumerate(lines, 1):
+                    sys.stdout.write(f"\r{BOLD}{CYAN}[{idx}/{len(lines)}]{RESET} Mengunduh {url[:45]}... ")
+                    sys.stdout.flush()
+                    url_content = fetch_url_content(url)
+                    endpoints_from_url = extract_endpoints_from_text(url_content)
+                    all_endpoints.extend(endpoints_from_url)
+                print(f"\r{BOLD}{GREEN}[{CHECK_MARK}]{RESET} Selesai mengunduh {len(lines)} URL!            \n")
+                
+                # Prompt user for the extraction filter
+                print(f"{BOLD}{CYAN}Pilih Tipe Ekstraksi untuk Hasil Unduhan:{RESET}")
+                print(f" {BOLD}{BLUE}[1]{RESET} URLs Only")
+                print(f" {BOLD}{BLUE}[2]{RESET} Paths Only")
+                print(f" {BOLD}{BLUE}[3]{RESET} JS Only")
+                print(f" {BOLD}{BLUE}[4]{RESET} All Endpoints")
+                sub_choice = input(f"{BOLD}Pilih Filter [1-4] > {RESET}").strip()
+                if sub_choice not in ['1', '2', '3', '4']:
+                    print(f"\n{BOLD}{YELLOW}[!] Filter tidak valid, menampilkan Semua Endpoint.{RESET}")
+                    extraction_type = '4'
+                else:
+                    extraction_type = sub_choice
             
+            # Apply Filter
             filtered = []
-            menu_name = ""
-            
-            if choice == '1':
-                # URLs Only: starts with http:// or https://
+            if extraction_type == '1':
                 filtered = [ep for ep in all_endpoints if ep.startswith(('http://', 'https://'))]
                 menu_name = "URLs Only"
-            elif choice == '2':
-                # Paths Only: does NOT start with http:// or https://
+            elif extraction_type == '2':
                 filtered = [ep for ep in all_endpoints if not ep.startswith(('http://', 'https://'))]
                 menu_name = "Paths Only"
-            elif choice == '3':
-                # JS Only: ends with .js (or with query/hashes)
+            elif extraction_type == '3':
                 filtered = [ep for ep in all_endpoints if is_js(ep)]
                 menu_name = "JS Only"
+            else:
+                filtered = all_endpoints
+                menu_name = "All Endpoints"
                 
             print(f"\n{BOLD}{GREEN}─── Hasil Ekstraksi ({menu_name}) ({len(filtered)} item) ───{RESET}")
             if not filtered:
                 print(f"{YELLOW}Tidak ada data yang cocok ditemukan.{RESET}")
             else:
                 for item in filtered:
-                    # Highlight domains or protocols nicely
                     formatted_item = item
                     if item.startswith('https://'):
                         formatted_item = item.replace('https://', f"{DIM}https://{RESET}{BOLD}{GREEN}", 1) + RESET
@@ -346,7 +371,6 @@ def main():
                         formatted_item = f"{BOLD}{YELLOW}{item}{RESET}"
                     else:
                         formatted_item = f"{CYAN}{item}{RESET}"
-                        
                     print(formatted_item)
                     
             print(f"{BOLD}{GREEN}{LINE}{RESET}")

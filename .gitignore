@@ -5,6 +5,7 @@ hasil.txt
 # Large test logs
 req.txt
 endpoint-1.txt
+js_file.txt
 
 # Python files
 __pycache__/
