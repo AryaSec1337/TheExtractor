@@ -175,9 +175,9 @@ def main():
         clear_screen()
         print_header()
         
-        print(f" {BOLD}{BLUE}[1]{RESET} Extract Endpoints (URLs & Paths)")
-        print(f" {BOLD}{BLUE}[2]{RESET} Extract JS Files (.js paths & links)")
-        print(f" {BOLD}{BLUE}[3]{RESET} Extract URLs Only (http/https links)")
+        print(f" {BOLD}{BLUE}[1]{RESET} URLs Only")
+        print(f" {BOLD}{BLUE}[2]{RESET} Paths Only")
+        print(f" {BOLD}{BLUE}[3]{RESET} JS Only")
         print(f" {BOLD}{BLUE}[4]{RESET} Keluar (Exit)")
         print(f"{BOLD}{CYAN}{LINE}{RESET}")
         
@@ -216,20 +216,23 @@ def main():
             menu_name = ""
             
             if choice == '1':
-                filtered = all_endpoints
-                menu_name = "Endpoints"
-            elif choice == '2':
-                filtered = [ep for ep in all_endpoints if is_js(ep)]
-                menu_name = "JS Files"
-            elif choice == '3':
+                # URLs Only: starts with http:// or https://
                 filtered = [ep for ep in all_endpoints if ep.startswith(('http://', 'https://'))]
-                menu_name = "URLs"
+                menu_name = "URLs Only"
+            elif choice == '2':
+                # Paths Only: does NOT start with http:// or https://
+                filtered = [ep for ep in all_endpoints if not ep.startswith(('http://', 'https://'))]
+                menu_name = "Paths Only"
+            elif choice == '3':
+                # JS Only: ends with .js (or with query/hashes)
+                filtered = [ep for ep in all_endpoints if is_js(ep)]
+                menu_name = "JS Only"
                 
             print(f"\n{BOLD}{GREEN}─── Hasil Ekstraksi ({menu_name}) ({len(filtered)} item) ───{RESET}")
             if not filtered:
                 print(f"{YELLOW}Tidak ada data yang cocok ditemukan.{RESET}")
             else:
-                for idx, item in enumerate(filtered, 1):
+                for item in filtered:
                     # Highlight domains or protocols nicely
                     formatted_item = item
                     if item.startswith('https://'):
@@ -241,7 +244,7 @@ def main():
                     else:
                         formatted_item = f"{CYAN}{item}{RESET}"
                         
-                    print(f" {DIM}{idx:2d}.{RESET} {formatted_item}")
+                    print(formatted_item)
                     
             print(f"{BOLD}{GREEN}{LINE}{RESET}")
             
