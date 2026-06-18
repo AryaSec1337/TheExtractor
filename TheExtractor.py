@@ -34,8 +34,6 @@ DIM = "\033[2m"
 
 # UI Unicode symbols with ASCII fallbacks
 BOX_TOP = "┌────────────────────────────────────────────────────────┐"
-BOX_MID_1 = "│                      THE EXTRACTOR                     │"
-BOX_MID_2 = "│               Endpoint & Link Extraction Tool          │"
 BOX_BOT = "└────────────────────────────────────────────────────────┘"
 LINE = "────────────────────────────────────────────────────────"
 SPIN_CHARS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
@@ -49,8 +47,6 @@ try:
 except Exception:
     # ASCII Fallbacks
     BOX_TOP = "+--------------------------------------------------------+"
-    BOX_MID_1 = "|                      THE EXTRACTOR                     |"
-    BOX_MID_2 = "|               Endpoint & Link Extraction Tool          |"
     BOX_BOT = "+--------------------------------------------------------+"
     LINE = "--------------------------------------------------------"
     SPIN_CHARS = ['|', '/', '-', '\\']
@@ -63,9 +59,16 @@ def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def print_header():
+    ascii_art = f"""{BOLD}{GREEN}
+  _____ _            _____  _                  _             
+ |_   _| |__   ___  | ____|___  ___ __ _ _ __ | |_ ___  _ __ 
+   | | | '_ \\ / _ \\ |  _| / __|/ __/ _` | '_ \\| __/ _ \\| '__|
+   | | | | | |  __/ | |___\\__ \\ (_| (_| | |_) | || (_) | |   
+   |_| |_| |_|\\___| |_____|___/\\___\\__,_| .__/ \\__\\___/|_|   
+                                        |_|                  {RESET}"""
+    print(ascii_art)
     print(f"{BOLD}{CYAN}{BOX_TOP}{RESET}")
-    print(f"{BOLD}{CYAN}│{RESET}                      {BOLD}{GREEN}THE EXTRACTOR{RESET}                     {BOLD}{CYAN}│{RESET}")
-    print(f"{BOLD}{CYAN}│{RESET}               {DIM}Endpoint & Link Extraction Tool{RESET}          {BOLD}{CYAN}│{RESET}")
+    print(f"{BOLD}{CYAN}│{RESET}              {BOLD}Author: {YELLOW}Tengku Arya Saputra{RESET}               {BOLD}{CYAN}│{RESET}")
     print(f"{BOLD}{CYAN}{BOX_BOT}{RESET}")
 
 def clean_endpoint(endpoint):
