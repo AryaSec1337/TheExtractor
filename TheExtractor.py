@@ -123,13 +123,23 @@ def is_valid_endpoint(cleaned):
     if len(cleaned) > 250:
         return False
         
-    # Split the path part (before query parameters)
+    # Split the path part (before query parameters/hashes)
     path_part = cleaned.split('?')[0].split('#')[0]
-    
+    if not path_part:
+        return False
+        
     # Path parts should not contain characters from JSON/markup/code
     # E.g. double quotes, commas, backslashes, parentheses, brackets, braces, semicolons, equal signs, ampersands, pipes
     illegal_chars = ['"', "'", ',', '\\', ';', '(', ')', '[', ']', '|', '&', '!', '*', '=', '+']
     if any(char in path_part for char in illegal_chars):
+        return False
+        
+    # A path part must NEVER contain a colon (URLs are extracted separately)
+    if ':' in path_part:
+        return False
+        
+    # A path part must contain at least one slash
+    if '/' not in path_part:
         return False
         
     # Handle curly braces in path_part (only allow matching braces with alphanumeric content like {code})
@@ -145,8 +155,6 @@ def is_valid_endpoint(cleaned):
     elif cleaned.startswith('./'):
         return len(cleaned) > 2
     elif cleaned.startswith('/'):
-        if ':' in path_part:
-            return False
         return len(cleaned) > 1
         
     # If it contains a slash but doesn't start with path indicators
@@ -157,11 +165,10 @@ def is_valid_endpoint(cleaned):
         # Check if it is a fraction (e.g. 1/2)
         if re.match(r'^\d+/\d+$', cleaned):
             return False
-        if ':' in path_part:
-            return False
             
         # Avoid simple word pairs like and/or, yes/no, etc.
-        if '.' in cleaned or cleaned.count('/') >= 2:
+        # Check dot or slash count on the path_part, not the entire cleaned string!
+        if '.' in path_part or path_part.count('/') >= 2:
             return True
         return False
         
@@ -314,20 +321,21 @@ def main():
                     with open(target, 'r', encoding='utf-8', errors='ignore') as f:
                         lines = [line.strip() for line in f if line.strip()]
                         
-                is_url_list = all(line.startswith(('http://', 'https://')) for line in lines)
-                if not is_url_list:
-                    print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: File/Target harus berisi URL valid (dimulai dengan http/https).{RESET}")
+                # Filter only valid URLs from the lines
+                urls_to_fetch = [line for line in lines if line.startswith(('http://', 'https://'))]
+                if not urls_to_fetch:
+                    print(f"\n{BOLD}{RED}[{WARN_MARK}] Error: Tidak ada URL valid (dimulai dengan http/https) di dalam target.{RESET}")
                     time.sleep(2.5)
                     continue
                     
-                print(f"\n{BOLD}{CYAN}[~]{RESET} Mendeteksi {len(lines)} URL. Memulai proses unduh...")
-                for idx, url in enumerate(lines, 1):
-                    sys.stdout.write(f"\r{BOLD}{CYAN}[{idx}/{len(lines)}]{RESET} Mengunduh {url[:45]}... ")
+                print(f"\n{BOLD}{CYAN}[~]{RESET} Menemukan {len(urls_to_fetch)} URL valid. Memulai proses unduh...")
+                for idx, url in enumerate(urls_to_fetch, 1):
+                    sys.stdout.write(f"\r{BOLD}{CYAN}[{idx}/{len(urls_to_fetch)}]{RESET} Mengunduh {url[:45]}... ")
                     sys.stdout.flush()
                     url_content = fetch_url_content(url)
                     endpoints_from_url = extract_endpoints_from_text(url_content)
                     all_endpoints.extend(endpoints_from_url)
-                print(f"\r{BOLD}{GREEN}[{CHECK_MARK}]{RESET} Selesai mengunduh {len(lines)} URL!            \n")
+                print(f"\r{BOLD}{GREEN}[{CHECK_MARK}]{RESET} Selesai mengunduh {len(urls_to_fetch)} URL!            \n")
                 
                 # Prompt user for the extraction filter
                 print(f"{BOLD}{CYAN}Pilih Tipe Ekstraksi untuk Hasil Unduhan:{RESET}")
