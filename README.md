@@ -7,6 +7,8 @@
   <img src="https://img.shields.io/badge/Platform-Cross--Platform-lightgrey?style=for-the-badge" alt="Platform">
 </p>
 
+## 📖 About
+
 `TheExtractor` is a premium, high-performance, and interactive command-line interface (CLI) tool written in Python. It is designed to extract endpoints, pathnames, and URLs from noisy source codes, minified scripts, log files, or raw HTML/HTTP dump files.
 
 ---
